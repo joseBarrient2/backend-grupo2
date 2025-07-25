@@ -19,7 +19,7 @@ const PORT = 3000;
 
 // Middleware global para CORS - DEBE IR ANTES que otros middlewares
 app.use(corsMiddleware);
-app.enable('trust proxy');
+
 // Middleware global para parsear JSON
 app.use(express.json());
 
@@ -39,7 +39,6 @@ const handleValidationErrors = (req, res, next) => {
 app.get('/', (req, res) => {
   res.send('Bienvenido a la API de Productos'); // Mensaje de bienvenida
 });
-
 // POST /register - Registro de usuarios (PÚBLICA)
 app.post('/register', validarRegistro, handleValidationErrors, async (req, res) => {
   try {
