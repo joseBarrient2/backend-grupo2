@@ -1,3 +1,5 @@
+// index.js (o el nombre de tu archivo principal de la API)
+
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { validationResult } = require('express-validator');
@@ -13,9 +15,14 @@ const {
   validarActualizarUsuario,
   validarIdEnParametro
 } = require('./validacion'); // Este es el archivo que creamos en el paso anterior
+const { enviarCorreoValidacion } = require('./enviarcorreo'); // Importar la función de envío de correo
 
 const app = express();
 const PORT = 3000;
+
+// Almacenamiento temporal en memoria para los códigos de validación (KISS)
+// En un entorno de producción, sería mejor usar una base de datos o Redis.
+const codigosDeValidacion = []; // Formato: [{ email: 'user@example.com', codigo: '12345' }]
 
 // Middleware global para CORS - DEBE IR ANTES que otros middlewares
 app.use(corsMiddleware);
@@ -39,30 +46,87 @@ const handleValidationErrors = (req, res, next) => {
 app.get('/', (req, res) => {
   res.send('Bienvenido a la API de Productos'); // Mensaje de bienvenida
 });
-// POST /register - Registro de usuarios (PÚBLICA)
-app.post('/register', validarRegistro, handleValidationErrors, async (req, res) => {
-  try {
-    const { usuario, pass, rol } = req.body;
 
-    // El hash de la contraseña se realiza después de la validación
+// NUEVO ENDPOINT: POST /send-code - Enviar código de validación por correo (PÚBLICA)
+app.post('/send-code', async (req, res) => {
+  const { email } = req.body;
+
+  // Validación simple para asegurar que se envió un email
+  if (!email) {
+    return res.status(400).json({ message: 'El campo email es requerido' });
+  }
+
+  try {
+    // Generar un código de validación aleatorio de 5 dígitos
+    const codigo = Math.floor(10000 + Math.random() * 90000).toString();
+
+    // Guardar el correo y el código en el array en memoria
+    // Si ya existe un código para ese email, se sobrescribe
+    const existingEntryIndex = codigosDeValidacion.findIndex(entry => entry.email === email);
+    if (existingEntryIndex > -1) {
+      codigosDeValidacion[existingEntryIndex] = { email, codigo };
+    } else {
+      codigosDeValidacion.push({ email, codigo });
+    }
+
+    // Enviar el correo electrónico con el código
+    await enviarCorreoValidacion(email, codigo);
+
+    res.status(200).json({ message: 'Código de validación enviado exitosamente' });
+
+  } catch (error) {
+    // Manejo de errores, especialmente si el envío del correo falla
+    res.status(500).json({ message: 'Error del servidor al enviar el código', error: error.message });
+  }
+});
+
+
+// ENDPOINT MODIFICADO: POST /register - Registro de usuarios (PÚBLICA)
+// El campo 'usuario' ahora es el email y se requiere el 'codigoValidacion'
+app.post('/register', validarRegistro, handleValidationErrors, async (req, res) => {
+  // Ahora el body debe incluir: usuario (email), pass, rol, y codigoValidacion
+  const { usuario, pass, rol, codigoValidacion } = req.body;
+
+  // 1. Verificar que el código de validación es correcto
+  const registroCodigo = codigosDeValidacion.find(
+    entry => entry.email === usuario && entry.codigo === codigoValidacion
+  );
+
+  if (!registroCodigo) {
+    return res.status(400).json({ message: 'El código de validación es incorrecto o ha expirado.' });
+  }
+
+  try {
+    // 2. Hashear la contraseña
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(pass, saltRounds);
 
-    // Insertar nuevo usuario en la base de datos
+    // 3. Insertar nuevo usuario en la base de datos
+    // La base de datos no se modifica, sigue esperando 'usuario', 'pass', y 'rol'.
     const result = await pool.query(
       'INSERT INTO usuarios (usuario, pass, rol) VALUES ($1, $2, $3) RETURNING id, usuario, rol',
       [usuario, hashedPassword, rol]
     );
+    
+    // 4. Una vez registrado, eliminar el código de validación para que no se reutilice
+    const indexToRemove = codigosDeValidacion.findIndex(entry => entry.email === usuario);
+    if (indexToRemove > -1) {
+        codigosDeValidacion.splice(indexToRemove, 1);
+    }
 
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
       user: result.rows[0]
     });
   } catch (error) {
-    // Manejo de errores del servidor
+    // Manejo de errores (ej: usuario duplicado en la DB)
+    if (error.code === '23505') { // Código de error de PostgreSQL para violación de unicidad
+      return res.status(409).json({ message: 'El correo electrónico ya está registrado.' });
+    }
     res.status(500).json({ message: 'Error del servidor', error: error.message });
   }
 });
+
 
 // POST /login - Autenticación (PÚBLICA) con rate limiting específico
 app.post('/login', loginLimiter, validarLogin, handleValidationErrors, async (req, res) => {
