@@ -19,7 +19,7 @@ const PORT = 3000;
 
 // Middleware global para CORS - DEBE IR ANTES que otros middlewares
 app.use(corsMiddleware);
-
+app.enable('trust proxy');
 // Middleware global para parsear JSON
 app.use(express.json());
 
