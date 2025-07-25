@@ -14,7 +14,7 @@ const loginLimiter = rateLimit({
 // Rate limiting general para API (menos restrictivo)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  max: 20, 
   message: {
     message: 'Demasiadas peticiones. Intenta de nuevo en 15 minutos.'
   },
