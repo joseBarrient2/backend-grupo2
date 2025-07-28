@@ -3,7 +3,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { validationResult } = require('express-validator');
-const pool = require('./conexiondb'); // Asegúrate que este archivo existe y la configuración es correcta
+const pool = require('./conexiondb'); // Asegúrate que este archivo existe y la configuración es correcta.
 const { verifyToken, generateToken } = require('./auth'); // Asegúrate que este archivo existe y la configuración es correcta
 const { loginLimiter, apiLimiter } = require('./ratelimit'); // Asegúrate que este archivo existe y la configuración es correcta
 const corsMiddleware = require('./cors'); // Importar la configuración de CORS
