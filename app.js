@@ -1,5 +1,4 @@
 // index.js (o el nombre de tu archivo principal de la API)
-
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { validationResult } = require('express-validator');
@@ -26,6 +25,7 @@ const codigosDeValidacion = []; // Formato: [{ email: 'user@example.com', codigo
 
 // Middleware global para CORS - DEBE IR ANTES que otros middlewares
 app.use(corsMiddleware);
+app.enable('trust proxy');
 
 // Middleware global para parsear JSON
 app.use(express.json());
