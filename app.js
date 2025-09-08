@@ -86,7 +86,7 @@ app.post('/send-code', async (req, res) => {
 app.post('/register', validarRegistro, handleValidationErrors, async (req, res) => {
   // Ahora el body debe incluir: usuario (email), pass, rol, y codigoValidacion
   const { usuario, pass, rol, codigoValidacion } = req.body;
-
+  
   // 1. Verificar que el código de validación es correcto
   const registroCodigo = codigosDeValidacion.find(
     entry => entry.email === usuario && entry.codigo === codigoValidacion
